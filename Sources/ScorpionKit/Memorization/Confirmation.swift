@@ -11,7 +11,9 @@
 //      snap = ‖x̂₀_base − x₀‖² / ‖x̂₀_target − x₀‖²   inside the region
 //
 //  ≫ 1: the target returns the region to the reference itself (stored); ≲ 1: it pulls it
-//  onto something else. Forward passes only.
+//  onto something else. Forward passes only. Over a region the snap is the geometric mean of
+//  per-cell ratios, so a fringe of unmemorized cells at a region's edge (smoothing widens
+//  regions by its radius) dilutes it gently instead of dominating a ratio of sums.
 //
 
 import Foundation
@@ -25,11 +27,11 @@ public struct ConfirmationField {
     public let distanceBase: [[Float]]
     public let evaluations: Int
 
-    /// Snap over `cells` at one level.
+    /// Snap over `cells` at one level: the geometric mean of per-cell base/target distance ratios.
     public func snap(cells: [Int], level: Int) -> Double {
-        let b = cells.reduce(0.0) { $0 + Double(distanceBase[level][$1]) }
-        let t = cells.reduce(0.0) { $0 + Double(distanceTarget[level][$1]) }
-        return b / max(t, 1e-12)
+        guard !cells.isEmpty else { return 1 }
+        let logs = cells.map { log(max(Double(distanceBase[level][$0]), 1e-12)) - log(max(Double(distanceTarget[level][$0]), 1e-12)) }
+        return exp(logs.reduce(0, +) / Double(cells.count))
     }
 
     /// Geometric-mean snap over every measured level.

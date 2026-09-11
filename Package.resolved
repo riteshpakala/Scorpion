@@ -1,14 +1,6 @@
 {
-  "originHash" : "dfdbb0604e6d916da5686c350ebe5afb17c73f887e21810f47ba1df4af64492e",
+  "originHash" : "5d9b812886fb9ceb4049f78eac6e47a7c15b2125c3042b665d1c708c113df309",
   "pins" : [
-    {
-      "identity" : "frigate",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rao-studios/Frigate",
-      "state" : {
-        "revision" : "1d3455e9b55e9ce01b093f7546c802cc88e7a040"
-      }
-    },
     {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",

@@ -31,6 +31,8 @@ public enum SourceError: Error, LocalizedError {
 public enum ModelHost: String, Codable, Sendable {
     case huggingFace
     case gitHub
+    /// A file on this machine.
+    case local
 }
 
 /// A parsed model link, before any network access.
@@ -163,6 +165,7 @@ public struct SourceResolver: Sendable {
         switch reference.host {
         case .huggingFace: return try await resolveHuggingFace(reference)
         case .gitHub: return try await resolveGitHub(reference)
+        case .local: throw SourceError.unsupportedURL(reference.original)
         }
     }
 

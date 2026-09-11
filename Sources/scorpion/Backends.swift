@@ -6,8 +6,11 @@
 //  registers only the analytic `toy` backend itself.
 //
 
+import ScorpionFlux2
 import ScorpionKit
 
 enum Backends {
-    static func registerAll() {}
+    static func registerAll() {
+        Flux2Registration.register()
+    }
 }

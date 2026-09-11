@@ -56,20 +56,28 @@ public struct LevelScout {
                              Double(rho.reduce(0, +)) / Double(max(rho.count, 1))))
         }
 
-        // The best contiguous window (on the scout grid) of at most `maxLevels` passing levels.
+        // The contiguous run of passing levels (on the scout grid) with the most released area;
+        // when it is longer than `maxLevels`, the window starts where the base first releases
+        // most of the image — a memory pins content from the base's natural variability down
+        // to its own width, so the band begins there — and runs toward lower noise.
         let passing = measured.map { $0.1 >= c.scoutMinReleased }
-        var best: Range<Int>?, bestScore = -1.0
+        var runs: [Range<Int>] = []
         var i = 0
         while i < measured.count {
             guard passing[i] else { i += 1; continue }
             var j = i
             while j < measured.count && passing[j] { j += 1 }
-            let width = min(j - i, max(c.maxLevels, 1))
-            for s in i...(j - width) {
-                let score = measured[s..<(s + width)].reduce(0) { $0 + $1.1 }
-                if score > bestScore { bestScore = score; best = s..<(s + width) }
-            }
+            runs.append(i..<j)
             i = j
+        }
+        var best = runs.max { a, b in
+            measured[a].reduce(0) { $0 + $1.1 } < measured[b].reduce(0) { $0 + $1.1 }
+        }
+        let width = max(c.maxLevels, 1)
+        if let run = best, run.count > width {
+            let start = run.first { measured[$0].1 >= 0.5 } ?? run.lowerBound
+            let s = min(start, run.upperBound - width)
+            best = s..<(s + width)
         }
         let levels = measured.enumerated().map { k, m in
             LevelScoutResult.Level(logSNR: m.0, releasedFraction: m.1, meanRetained: m.2, selected: best?.contains(k) ?? false)

@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import ScorpionFlux2
 import SwiftUI
 
 @MainActor
@@ -12,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = ScanViewModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Composition root: executor families available to this app.
+        Flux2Registration.register()
         NSApp.mainMenu = MainMenu.build(target: self)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 760),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],

@@ -76,8 +76,9 @@ public struct MemorizationResult: Codable, Sendable {
     public let levels: [LevelSummary]
     public let heatmap: MemorizationHeatmap
     public var regions: [MemorizedRegion] { heatmap.regions }
-    /// Pre-chosen membership statistic: confirmation band snap over the union of counted
-    /// regions, or over the whole frame when there are none.
+    /// Pre-chosen membership statistic: confirmation band snap over the union of candidate
+    /// regions (before calibration, so references and controls are measured alike), or over
+    /// the whole frame when there are none.
     public let membershipSnap: Double
     /// Confirmation band snap over the whole frame.
     public let frameSnap: Double

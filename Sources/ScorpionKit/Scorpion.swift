@@ -202,8 +202,11 @@ public final class Scorpion: @unchecked Sendable {
                                metadata: loaded.findings, flags: loaded.inventory.flags, ggufSummaries: gguf)
     }
 
-    /// The largest adapter unit at `link`, every module decoded to ΔW (all of its tensors are fetched).
+    /// The largest adapter unit at `link` (or a local .safetensors path), every module decoded
+    /// to ΔW (all of its tensors are fetched).
     public func extractAdapter(model link: String, progress: ProgressHandler? = nil) async throws -> ExtractedAdapter {
+        let path = (link as NSString).expandingTildeInPath
+        if FileManager.default.fileExists(atPath: path) { return try extractAdapter(localFile: URL(fileURLWithPath: path)) }
         let loaded = try await loadModel(link, progress: progress)
         let withLayout = loaded.inventory.units.map { ($0, AdapterLayoutDetector.detect($0.tensors)) }
         guard let (unit, layout) = withLayout.filter({ $0.1.format != .fullModel && $0.1.format != .textualInversion })
@@ -216,7 +219,43 @@ public final class Scorpion: @unchecked Sendable {
         let analyzer = WeightAnalyzer(fetcher: fetcher, budgetBytes: .max)
         let names = Set(layout.modules.flatMap(\.tensorNames))
         let tensors = try await analyzer.fetchTensors(names.compactMap { unit.tensors[$0] }, cacheable: loaded.source.pinned)
-        let decoder = AdapterDecoder(peftScale: loaded.peftScale)
+        return Self.decode(layout: layout, tensors: tensors, peftScale: loaded.peftScale, unit: unit.name,
+                           source: sourceSummary(loaded.source, inventory: loaded.inventory), findings: loaded.findings)
+    }
+
+    /// A local .safetensors adapter file (read in place; its SHA-256 is the provenance).
+    public func extractAdapter(localFile url: URL) throws -> ExtractedAdapter {
+        let data = try Data(contentsOf: url, options: .mappedIfSafe)
+        let header = try SafetensorsHeader.parse(prefix: data)
+        let file = RemoteFile(path: url.lastPathComponent, size: data.count, url: url)
+        var records: [String: TensorRecord] = [:]
+        for e in header.entries {
+            records[e.name] = TensorRecord(name: e.name, file: file, rawDType: e.rawDType, shape: e.shape,
+                                           byteRange: header.absoluteRange(of: e))
+        }
+        let layout = AdapterLayoutDetector.detect(records)
+        guard layout.format != .fullModel, layout.format != .textualInversion else { throw ScorpionError.noAdapter(url.path) }
+        var tensors: [String: MLXArray] = [:]
+        for name in Set(layout.modules.flatMap(\.tensorNames)) {
+            guard let r = records[name], let dtype = r.dtype else { continue }
+            let floats = try TensorDecoding.floats(from: data.subdata(in: r.byteRange), dtype: dtype, count: r.elementCount)
+            tensors[name] = MLXArray(floats, r.shape.isEmpty ? [1] : r.shape)
+        }
+        var peftScale: ((Int) -> Float)?
+        let config = url.deletingLastPathComponent().appendingPathComponent("adapter_config.json")
+        if let d = try? Data(contentsOf: config) { peftScale = AdapterDecoder.peftScale(fromConfig: d) }
+        let findings = MetadataProbe.findings(safetensorsMetadata: header.metadata, cardData: [:], readme: nil, hubTags: [])
+        let source = SourceSummary(link: url.path, host: .local, repo: url.lastPathComponent, commit: "sha256:" + Hashing.sha256Hex(data),
+                                   files: [FileInventoryNote(path: url.lastPathComponent, format: .safetensors, size: data.count,
+                                                             tensorCount: header.entries.count, note: nil)],
+                                   repoBytes: data.count, weightBytes: data.count, bytesFetched: 0, bytesFromCache: 0, requests: 0)
+        return Self.decode(layout: layout, tensors: tensors, peftScale: peftScale, unit: url.lastPathComponent,
+                           source: source, findings: findings)
+    }
+
+    static func decode(layout: AdapterLayout, tensors: [String: MLXArray], peftScale: ((Int) -> Float)?, unit: String,
+                       source: SourceSummary, findings: MetadataFindings) -> ExtractedAdapter {
+        let decoder = AdapterDecoder(peftScale: peftScale)
         var updates: [String: WeightUpdate] = [:]
         var notes: [String] = []
         for spec in layout.modules {
@@ -229,9 +268,8 @@ public final class Scorpion: @unchecked Sendable {
         if layout.modules.contains(where: \.hasDoRA) { notes.append("DoRA magnitudes present; direction-only approximation") }
         let ignored = Set(layout.modules.flatMap(\.ignoredFactors))
         if !ignored.isEmpty { notes.append("ignored factors: \(ignored.sorted().joined(separator: ", "))") }
-        return ExtractedAdapter(source: sourceSummary(loaded.source, inventory: loaded.inventory), unit: unit.name,
-                                format: layout.format, modules: layout.modules, updates: updates, findings: loaded.findings,
-                                notes: notes)
+        return ExtractedAdapter(source: source, unit: unit, format: layout.format, modules: layout.modules, updates: updates,
+                                findings: findings, notes: notes)
     }
 
     // MARK: - Memorization

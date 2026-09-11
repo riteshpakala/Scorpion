@@ -64,3 +64,4 @@ fastlane/test_output
 # macOS / editor
 .DS_Store
 .vscode/
+Packages/
