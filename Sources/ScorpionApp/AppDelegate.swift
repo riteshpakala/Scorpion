@@ -30,5 +30,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func openImage(_ sender: Any?) { model.chooseImage() }
     @objc func exportReport(_ sender: Any?) { model.exportReport() }
-    @objc func startScan(_ sender: Any?) { model.scan() }
+    @objc func startScan(_ sender: Any?) { model.run() }
 }

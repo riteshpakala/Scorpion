@@ -33,9 +33,19 @@ public struct SeedSchedule: Sendable {
         case noise, lambda, prompt, needle, background, jitter, scenario
         /// Hutchinson probe vectors (curvature / memorization maps).
         case rademacher
-        /// Seed perturbations around an inverted reference (memory-pool basins).
+        /// Seed perturbations around an inverted reference (seed-endpoint basins).
         case basin
+        /// Base-only level scout (independent of the draws the target is measured on).
+        case scout
+        /// Held-out draws that confirm a detected region (sample splitting).
+        case confirmation
+        /// Base-model samples used as negative controls.
+        case control
     }
+
+    /// Stable index for a noise level, keyed by λ's value (not its position in a list), so
+    /// every profile and every probe that visits a level sees the same draws there.
+    public static func levelKey(_ lambda: Float) -> Int { 1_000_000 + Int((lambda * 64).rounded()) }
 
     private let key: SymmetricKey
     public let info: ScheduleInfo

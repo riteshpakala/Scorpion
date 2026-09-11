@@ -9,32 +9,37 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class ScanViewModel: ObservableObject {
+    @Published var backend = "toy"
     @Published var modelLink = ""
+    @Published var prompt = ""
+    @Published var profile = "toy"
+    @Published var heldOut = false
+    @Published var runBasin = false
     @Published var image: NSImage?
     @Published var imageSize: CGSize = .zero
-    @Published var faces: [FaceRegion] = []
-    @Published var selectedFace = 0
-    @Published var budgetMB: Double = 256
-    @Published var useCLIP = true
+    @Published var controlsDirectory: URL?
+    @Published var controlCount = 0
 
     @Published var isRunning = false
     @Published var phase = ""
     @Published var bytesFetched = 0
     @Published var weightBytes: Int?
-    @Published var report: LikenessReport?
-    @Published var research: GMMResearchReport?
-    @Published var needle: NeedleResearchReport?
-    @Published var memory: MemoryResearchReport?
+    @Published var report: MemorizationReport? { didSet { refreshOverlay() } }
+    @Published var layer = MemorizationHeatmap.primaryLayer { didSet { refreshOverlay() } }
+    @Published var opacity = 1.0
+    @Published var overlay: NSImage?
+    @Published var research: MemoryResearchReport?
     @Published var errorMessage: String?
-    /// Tinted segmentation masks per face index (overlays on the reference).
-    @Published var segmentOverlays: [Int: NSImage] = [:]
-    @Published var segmentMethods: [Int: String] = [:]
 
     private var reference: ReferenceImage?
+    private var controls: [ReferenceImage] = []
     private var imageURL: URL?
 
-    var canScan: Bool { !isRunning && reference != nil && !modelLink.trimmingCharacters(in: .whitespaces).isEmpty }
+    var backends: [String] { BackendRegistry.shared.names }
+    var isToy: Bool { backend.hasPrefix("toy") }
+    var canRun: Bool { !isRunning && reference != nil && (isToy || !modelLink.trimmingCharacters(in: .whitespaces).isEmpty) }
     var imageName: String? { imageURL?.lastPathComponent }
+    var layers: [String] { report?.result.heatmap.layers.map(\.name) ?? [] }
 
     func chooseImage() {
         let panel = NSOpenPanel()
@@ -51,61 +56,59 @@ final class ScanViewModel: ObservableObject {
             imageURL = url
             image = NSImage(cgImage: ref.image, size: NSSize(width: ref.width, height: ref.height))
             imageSize = CGSize(width: ref.width, height: ref.height)
-            faces = []
-            selectedFace = 0
             report = nil
             research = nil
-            needle = nil
-            memory = nil
-            segmentOverlays = [:]
-            segmentMethods = [:]
-            Task.detached(priority: .userInitiated) {
-                let found = (try? FaceDetector.detect(ref)) ?? []
-                let segments = found.map { FaceSegmenter.segment(ref, face: $0) }
-                let overlays = segments.reduce(into: [Int: NSImage]()) { acc, seg in
-                    if let raster = seg.face.rasterMask { acc[seg.faceIndex] = Self.tint(raster) }
-                }
-                let methods = segments.reduce(into: [Int: String]()) { $0[$1.faceIndex] = $1.method }
-                await MainActor.run {
-                    self.faces = found
-                    self.segmentOverlays = overlays
-                    self.segmentMethods = methods
-                }
-            }
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    private func options() -> ScanOptions {
-        var o = ScanOptions()
-        o.budgetBytes = Int(budgetMB) * 1_000_000
-        o.useCLIP = useCLIP
-        o.faceIndex = faces.isEmpty ? nil : selectedFace
-        return o
+    func chooseControls() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "Use as Controls"
+        panel.message = "A folder of images known NOT to be in the model's training set."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let exts: Set<String> = ["jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp"]
+        let files = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []
+        controls = files.filter { exts.contains($0.pathExtension.lowercased()) }.sorted { $0.path < $1.path }
+            .compactMap { try? ReferenceImage.load(url: $0) }
+        controlsDirectory = url
+        controlCount = controls.count
     }
 
-    func scan() {
-        guard canScan, let reference else { return }
+    func clearControls() {
+        controls = []
+        controlsDirectory = nil
+        controlCount = 0
+    }
+
+    func run() {
+        guard canRun, let reference else { return }
         isRunning = true
         errorMessage = nil
         report = nil
         bytesFetched = 0
         weightBytes = nil
         phase = "Starting"
-        let link = modelLink.trimmingCharacters(in: .whitespaces)
-        let scorpion = Scorpion(options: options())
+        var options: [String: [String]] = [:]
+        if isToy && heldOut { options["member"] = ["false"] }
+        let request = BackendRequest(backend: backend, model: isToy ? nil : modelLink.trimmingCharacters(in: .whitespaces),
+                                     reference: reference, prompt: prompt, options: options)
+        let config = MemorizationConfiguration.named(profile) ?? (isToy ? .toy : .standard)
+        let basin: SeedBasinConfiguration? = runBasin ? (isToy ? SeedBasinConfiguration() : .lite) : nil
+        let controls = controls
+        let scorpion = Scorpion(options: ScorpionOptions())
         Task.detached(priority: .userInitiated) {
             do {
-                let result = try await scorpion.scan(model: link, reference: reference) { p in
+                let result = try await scorpion.detectMemorization(request, controls: controls, configuration: config, basin: basin) { p in
                     Task { @MainActor in self.apply(p) }
                 }
                 await MainActor.run {
                     self.report = result
-                    self.bytesFetched = result.source.bytesFetched
-                    self.weightBytes = result.source.weightBytes
                     self.isRunning = false
-                    self.phase = "Done"
+                    self.phase = "Done — \(result.result.verdict.rawValue)"
                 }
             } catch {
                 await MainActor.run {
@@ -117,42 +120,19 @@ final class ScanViewModel: ObservableObject {
         }
     }
 
-    /// Mask raster → accent-tinted translucent image for overlaying.
-    nonisolated static func tint(_ raster: RasterMask) -> NSImage {
-        var rgba = [UInt8](repeating: 0, count: raster.width * raster.height * 4)
-        for (i, v) in raster.values.enumerated() {
-            let a = UInt8(max(0, min(255, v * 110)))
-            rgba[4 * i] = UInt8(Int(40) * Int(a) / 255)
-            rgba[4 * i + 1] = UInt8(Int(170) * Int(a) / 255)
-            rgba[4 * i + 2] = UInt8(Int(255) * Int(a) / 255)
-            rgba[4 * i + 3] = a
-        }
-        let provider = CGDataProvider(data: Data(rgba) as CFData)!
-        let cg = CGImage(width: raster.width, height: raster.height, bitsPerComponent: 8, bitsPerPixel: 32,
-                         bytesPerRow: raster.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                         bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-                         provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)!
-        return NSImage(cgImage: cg, size: NSSize(width: raster.width, height: raster.height))
-    }
-
     func runResearch() {
         guard !isRunning, let reference else { return }
         isRunning = true
         errorMessage = nil
-        phase = "Running theory harness (analytic models)"
+        phase = "Sweeping memorization strength on analytic worlds"
         Task.detached(priority: .userInitiated) {
             do {
-                let result = try GMMResearch.run(reference: reference)
-                await MainActor.run { self.research = result; self.phase = "Running face-seed needle (analytic models)" }
-                let needle = try NeedleResearch.run(reference: reference)
-                await MainActor.run { self.needle = needle; self.phase = "Running memory pools (analytic models)" }
-                // Learned vs stored, lighter than the CLI default (which sweeps κ = 0, 0.5, 0.9, 1).
                 var options = MemoryResearchOptions()
-                options.kappas = [0, 1]
+                options.kappas = [0, 0.5, 1]
                 options.audit = 4
                 let memory = try MemoryResearch.run(reference: reference, options: options)
                 await MainActor.run {
-                    self.memory = memory
+                    self.research = memory
                     self.isRunning = false
                     self.phase = "Done"
                 }
@@ -163,6 +143,16 @@ final class ScanViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func refreshOverlay() {
+        guard let heatmap = report?.result.heatmap, heatmap.layer(layer) != nil else {
+            overlay = nil
+            return
+        }
+        var renderer = HeatmapRenderer()
+        renderer.layer = layer
+        overlay = renderer.overlay(heatmap, maxSide: 640).map { NSImage(cgImage: $0, size: NSSize(width: $0.width, height: $0.height)) }
     }
 
     private func apply(_ p: ScanProgress) {
@@ -176,10 +166,32 @@ final class ScanViewModel: ObservableObject {
         guard let report else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "scorpion-report-\(report.reference.referenceID.prefix(8)).json"
+        panel.nameFieldStringValue = "scorpion-memorization-\(report.reference.id.prefix(8)).json"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            try report.jsonData().write(to: url)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
+            try encoder.encode(report).write(to: url)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func exportOverlay() {
+        guard let report, let reference else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.nameFieldStringValue = "scorpion-heatmap-\(report.reference.id.prefix(8)).png"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        var renderer = HeatmapRenderer()
+        renderer.layer = layer
+        let r = report.result
+        guard let img = renderer.render(r.heatmap, reference: reference, title: "\(r.verdict.rawValue) · \(report.backend)",
+                                        subtitle: "\(reference.name) · \(r.estimator) · uncalibrated") else { return }
+        do {
+            try ImageWriter.writePNG(img, to: url)
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -42,9 +42,6 @@ let package = Package(
                 .product(name: "Hub", package: "Frigate"),
                 .product(name: "Tokenizers", package: "Frigate"),
             ],
-            resources: [
-                .process("Resources")
-            ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(

@@ -26,7 +26,7 @@ enum MainMenu {
         let fileMenu = NSMenu(title: "File")
         let open = NSMenuItem(title: "Open Reference Image…", action: #selector(AppDelegate.openImage(_:)), keyEquivalent: "o")
         open.target = target
-        let scan = NSMenuItem(title: "Scan", action: #selector(AppDelegate.startScan(_:)), keyEquivalent: "r")
+        let scan = NSMenuItem(title: "Run Test", action: #selector(AppDelegate.startScan(_:)), keyEquivalent: "r")
         scan.target = target
         let export = NSMenuItem(title: "Export Report…", action: #selector(AppDelegate.exportReport(_:)), keyEquivalent: "e")
         export.target = target
