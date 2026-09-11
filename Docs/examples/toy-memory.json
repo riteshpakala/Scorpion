@@ -1,0 +1,24 @@
+{
+  "name": "toy memory pools: 3 synthetic identities at four memorization strengths",
+  "toy": {
+    "identities": 3,
+    "photosPerIdentity": 5,
+    "lookAlikesPerIdentity": 2,
+    "lookAlikeDistance": 1.0,
+    "unrelated": 3,
+    "needleWeight": 0.01,
+    "variance": 0.05,
+    "side": 12,
+    "generic": 12,
+    "styleModel": false,
+    "needleArm": false,
+    "memorization": {
+      "kappas": [0, 0.5, 0.9, 1],
+      "members": 8,
+      "duplicates": 1,
+      "identityWeight": 0.05,
+      "references": 4,
+      "probes": 4
+    }
+  }
+}

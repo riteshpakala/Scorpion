@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "minProbability": 0.25,
+  "personPhrases": ["a woman", "a man", "a child", "a teenager", "an elderly person", "a person", "a group of people"],
+  "promptTemplates": [
+    "a photo of {subject}, {attributes}",
+    "{subject} with {attributes}",
+    "a portrait of {subject}, {attributes}",
+    "{attributes}, {subject}",
+    "a picture of {subject} showing {attributes}"
+  ],
+  "categories": [
+    {
+      "name": "subject", "exclusive": true, "person": false,
+      "templates": ["a photo of {}.", "a picture of {}.", "an image of {}."],
+      "phrases": ["a woman", "a man", "a child", "a teenager", "an elderly person", "a person", "a group of people",
+                  "a cat", "a dog", "an animal", "a landscape", "a cityscape", "a building", "a room interior",
+                  "food", "a vehicle", "a product", "an anime character", "a cartoon character", "a document with text"]
+    },
+    {
+      "name": "medium", "exclusive": true, "person": false,
+      "templates": ["{}.", "this image is {}."],
+      "phrases": ["a photograph", "a selfie", "a studio portrait photograph", "a digital painting", "an oil painting",
+                  "a pencil sketch", "an anime illustration", "a 3D render", "a cartoon drawing",
+                  "a still frame from a film", "a low-quality webcam image"]
+    },
+    {
+      "name": "framing", "exclusive": true, "person": true,
+      "templates": ["a photo showing {}.", "a picture that is {}."],
+      "phrases": ["a close-up of a face", "a head-and-shoulders portrait", "an upper-body shot", "a full-body shot"]
+    },
+    {
+      "name": "hair color", "exclusive": true, "person": true,
+      "templates": ["a photo of a person with {}.", "a portrait of someone with {}."],
+      "phrases": ["blonde hair", "brown hair", "black hair", "red hair", "gray hair", "white hair",
+                  "brightly dyed hair", "a bald head"]
+    },
+    {
+      "name": "hair style", "exclusive": true, "person": true,
+      "templates": ["a photo of a person with {}.", "a portrait of someone with {}."],
+      "phrases": ["short hair", "shoulder-length hair", "long hair", "curly hair", "braided hair", "a ponytail",
+                  "a bun hairstyle", "a buzz cut"]
+    },
+    {
+      "name": "facial hair", "exclusive": true, "person": true,
+      "templates": ["a photo of a person with {}.", "a portrait of someone with {}."],
+      "phrases": ["a clean-shaven face", "a beard", "a mustache", "stubble"]
+    },
+    {
+      "name": "eyewear", "exclusive": true, "person": true,
+      "templates": ["a photo of a person wearing {}.", "a portrait of someone wearing {}."],
+      "phrases": ["glasses", "sunglasses", "no glasses"]
+    },
+    {
+      "name": "expression", "exclusive": true, "person": true,
+      "templates": ["a photo of a person with {}.", "a portrait of someone with {}."],
+      "phrases": ["a smile", "a neutral expression", "a serious expression", "a laughing face", "an open mouth"]
+    },
+    {
+      "name": "apparent age", "exclusive": true, "person": true,
+      "templates": ["a photo of {}.", "a portrait of {}."],
+      "phrases": ["a young adult", "a middle-aged adult", "an older adult", "a child"]
+    },
+    {
+      "name": "clothing", "exclusive": false, "person": true,
+      "templates": ["a photo of a person wearing {}.", "a portrait of someone wearing {}."],
+      "phrases": ["a suit", "a t-shirt", "a dress", "a hoodie", "a uniform", "a jacket", "a hat", "a necklace",
+                  "earrings", "swimwear", "a sweater", "a collared shirt"]
+    },
+    {
+      "name": "setting", "exclusive": true, "person": false,
+      "templates": ["a photo taken in {}.", "a picture set in {}."],
+      "phrases": ["the outdoors", "an indoor room", "a photo studio", "a city street", "a beach", "a forest",
+                  "a stage", "an office", "a bedroom", "front of a plain backdrop"]
+    },
+    {
+      "name": "lighting", "exclusive": true, "person": false,
+      "templates": ["a photo with {}.", "an image with {}."],
+      "phrases": ["natural daylight", "studio lighting", "low light", "dramatic lighting", "neon lighting",
+                  "golden hour light"]
+    },
+    {
+      "name": "tags", "exclusive": false, "person": true,
+      "templates": ["{}", "a photo, {}"],
+      "phrases": ["realistic", "photorealistic", "looking at viewer", "solo", "upper body", "portrait", "smile",
+                  "long hair", "short hair", "blue eyes", "brown eyes", "green eyes", "makeup", "freckles",
+                  "tattoo", "piercing", "lips", "teeth", "jewelry"]
+    }
+  ]
+}

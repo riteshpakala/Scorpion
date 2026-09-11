@@ -1,0 +1,23 @@
+{
+  "name": "toy dry run: 3 synthetic identities",
+  "toy": {
+    "identities": 3,
+    "photosPerIdentity": 5,
+    "lookAlikesPerIdentity": 2,
+    "lookAlikeDistance": 1.0,
+    "unrelated": 3,
+    "needleWeight": 0.01,
+    "variance": 0.05,
+    "side": 12,
+    "generic": 12,
+    "styleModel": true
+  },
+  "settings": {
+    "samplesPerLevel": 100,
+    "maxLevels": 4,
+    "steps": 10,
+    "guidance": [1],
+    "faceBand": {"lo": -6, "hi": 8},
+    "faceProbePermutations": 64
+  }
+}
