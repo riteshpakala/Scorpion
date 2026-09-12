@@ -1,0 +1,19 @@
+{
+  "name": "toy memorization: 3 synthetic subjects at four memorization strengths",
+  "toy": {
+    "identities": 3,
+    "lookAlikesPerIdentity": 2,
+    "lookAlikeDistance": 1.0,
+    "variance": 0.05,
+    "side": 12,
+    "generic": 12,
+    "memorization": {
+      "kappas": [0, 0.5, 0.9, 1],
+      "members": 8,
+      "duplicates": 1,
+      "identityWeight": 0.05,
+      "references": 4,
+      "probes": 4
+    }
+  }
+}
