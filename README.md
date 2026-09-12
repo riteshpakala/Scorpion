@@ -75,7 +75,7 @@ Re-run the script after `swift build -c release` or after cleaning `.build`. For
 
 **Private repos.** For gated or private repos, set `HF_TOKEN` / `GITHUB_TOKEN`. Each token is only sent to its own host.
 
-**The app.** Run `swift run ScorpionApp`. Pick a backend, drop an image, optionally choose a controls folder, and press **Test**. The heatmap is drawn over the reference, with a layer picker, an opacity slider, the regions, the noise levels, the verdict and provenance, and PNG/JSON export.
+**The app.** Run `scripts/run-app.sh`. It builds the app, puts `mlx.metallib` next to it when that's missing, and launches it. Add `--release` for faster probes on real models, or `--detach` to return to the shell (logs go to `.build/ScorpionApp.log`); `--help` lists the rest. Pick a backend, drop an image, optionally choose a controls folder, and press **Test**. The heatmap is drawn over the reference, with a layer picker, an opacity slider, the regions, the noise levels, the verdict and provenance, and PNG/JSON export.
 
 ## How it works
 

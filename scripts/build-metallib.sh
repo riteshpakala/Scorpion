@@ -11,7 +11,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MLX_SRC="$ROOT/.build/checkouts/Frigate/Sources/Cmlx/mlx"
+# `swift package edit Frigate` puts the edited checkout under Packages/; prefer it.
+if [[ -d "$ROOT/Packages/Frigate/Sources/Cmlx/mlx" ]]; then
+  MLX_SRC="$ROOT/Packages/Frigate/Sources/Cmlx/mlx"
+else
+  MLX_SRC="$ROOT/.build/checkouts/Frigate/Sources/Cmlx/mlx"
+fi
 KERNELS="$MLX_SRC/mlx/backend/metal/kernels"
 OUT="$ROOT/.build/metallib"
 CONFIGS="${1:-all}"
